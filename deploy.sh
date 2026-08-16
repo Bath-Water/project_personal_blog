@@ -6,7 +6,7 @@
 # ============================================================
 set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
-DOMAIN="20110426.xyz"
+DOMAIN="blog.20110426.xyz"
 WWW_DIR="/var/www/blog"
 BACKEND_DIR="$WWW_DIR/backend"
 FRONTEND_DIR="$WWW_DIR/frontend"
