@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 - Blog</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<div class="auth-page">
+<div class="auth-card">
+  <h2 class="auth-title">👋 欢迎回来</h2>
+  <p class="auth-subtitle">登录以管理你的博客</p>
+  <div id="login-error" class="form-error" style="margin-bottom:12px;display:none"></div>
+  <form onsubmit="handleLogin(event)">
+    <div class="form-group">
+      <label class="form-label">邮箱或用户名</label>
+      <input id="login-email" class="form-input" type="text" placeholder="email@example.com" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input id="login-password" class="form-input" type="password" placeholder="••••••••" required>
+    </div>
+    <div class="form-group">
+      <label style="font-size:0.85rem;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="login-remember"> 记住我
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">登录</button>
+  </form>
+  <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted)">
+    还没有账号？ <a href="register.html">注册</a>
+  </p>
+</div>
+</div>
+<div id="toast"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+async function handleLogin(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const remember = document.getElementById('login-remember').checked;
+  try {
+    await login(email, password, remember);
+    const redirect = new URLSearchParams(location.search).get('redirect') || '/';
+    location.href = redirect;
+  } catch(e) {
+    errEl.textContent = e.message || '登录失败';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>

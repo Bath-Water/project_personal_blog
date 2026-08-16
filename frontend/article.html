@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文章详情</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header class="header">
+<div class="container header-inner">
+  <a href="/" class="logo">📝 Blog</a>
+  <nav class="nav">
+    <a href="/" class="nav-link">首页</a>
+    <a href="search.html" class="nav-link">搜索</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="theme-toggle" title="切换主题"></button>
+    <a href="editor.html" class="btn btn-primary btn-sm">✏️ 写文章</a>
+  </div>
+</div>
+</header>
+
+<main class="container">
+<article id="article-detail" class="article-detail">
+  <div class="loading" id="article-loading"><div class="spinner"></div></div>
+</article>
+</main>
+
+<footer class="footer"><div class="container">© 2026 Blog. Built with ❤️</div></footer>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+async function loadArticle() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { location.href = '/'; return; }
+  try {
+    const post = await apiGet(`/posts/${id}`);
+    const p = post.data;
+    const category = p.category ? `<span class="article-tag">${escapeHtml(p.category.name)}</span>` : '';
+    const tags = (p.tags || []).map(t => `<span class="article-tag">${escapeHtml(t.name)}</span>`).join(' ');
+    const cover = p.cover_url ? `<img src="${p.cover_url}" style="width:100%;border-radius:12px;margin-bottom:24px;">` : '';
+
+    let commentsHtml = '';
+    try {
+      const comments = await apiGet(`/posts/${id}/comments`);
+      commentsHtml = '<div class="comments-section"><h3 style="margin-bottom:16px">💬 评论</h3>' +
+        (comments.data.items || []).map(renderComment).join('') +
+        '<div style="margin-top:16px"><textarea id="comment-input" class="form-input" placeholder="写下你的评论..."></textarea>' +
+        '<button class="btn btn-primary" style="margin-top:8px" onclick="postComment()">提交</button></div></div>';
+    } catch(e) {}
+
+    document.getElementById('article-detail').innerHTML = `
+      <div class="article-detail-meta">
+        ${formatDate(p.published_at || p.created_at)} · ${p.view_count || 0} 次阅读
+      </div>
+      <h1 class="article-detail-title">${escapeHtml(p.title)}</h1>
+      <div style="margin-bottom:16px">${category} ${tags}</div>
+      ${cover}
+      <div class="article-detail-content">${p.content}</div>
+      ${commentsHtml}
+    `;
+    document.title = p.title + ' - Blog';
+  } catch(e) { showToast('加载失败: ' + e.message, 'error'); }
+}
+
+async function postComment() {
+  const id = new URLSearchParams(location.search).get('id');
+  const input = document.getElementById('comment-input');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await apiPost(`/posts/${id}/comments`, { content, nickname: 'Reader' });
+    input.value = '';
+    showToast('评论成功');
+    loadArticle();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+</script>
+</body>
+</html>

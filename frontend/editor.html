@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>编辑文章</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header class="header">
+<div class="container header-inner">
+  <a href="/" class="logo">📝 Blog</a>
+  <nav class="nav"><a href="/" class="nav-link">首页</a></nav>
+  <div class="nav-actions">
+    <button class="theme-toggle"></button>
+    <span id="auth-user" style="font-size:0.85rem"></span>
+    <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+  </div>
+</div>
+</header>
+
+<main class="container" style="max-width:800px;padding:32px 0">
+<h2 style="margin-bottom:24px">✏️ 编辑文章</h2>
+<form id="editor-form" onsubmit="savePost(event)">
+  <div class="form-group">
+    <input id="title-input" class="form-input" placeholder="文章标题" required>
+  </div>
+
+  <div class="editor-toolbar">
+    <button data-cmd="bold" type="button">B</button>
+    <button data-cmd="italic" type="button"><i>I</i></button>
+    <button data-cmd="h1" type="button">H1</button>
+    <button data-cmd="h2" type="button">H2</button>
+    <button data-cmd="h3" type="button">H3</button>
+    <button data-cmd="p" type="button">¶</button>
+    <button data-cmd="ul" type="button">•</button>
+    <button data-cmd="ol" type="button">1.</button>
+    <button data-cmd="link" type="button">🔗</button>
+    <button data-cmd="image" type="button">🖼️</button>
+    <button data-cmd="video" type="button">🎬</button>
+    <button data-cmd="quote" type="button">❝</button>
+    <button data-cmd="code" type="button">&lt;&gt;</button>
+  </div>
+  <div id="editor" class="editor-area" contenteditable="true"></div>
+  <input type="hidden" id="content-value">
+
+  <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+    <div class="form-group" style="flex:1;min-width:150px">
+      <label class="form-label">分类</label>
+      <select id="category-select" class="form-input"></select>
+    </div>
+    <div class="form-group" style="flex:2;min-width:200px">
+      <label class="form-label">标签 (逗号分隔)</label>
+      <input id="tags-input" class="form-input" placeholder="python, web, ai">
+    </div>
+    <div class="form-group" style="flex:1;min-width:150px">
+      <label class="form-label">封面图片</label>
+      <input id="cover-input" class="form-input" type="file" accept="image/*">
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;margin-top:16px">
+    <button type="submit" data-status="draft" class="btn btn-outline">保存草稿</button>
+    <button type="submit" data-status="published" class="btn btn-primary">发布</button>
+    <a href="/admin.html" class="btn btn-outline">管理后台</a>
+  </div>
+</form>
+<div id="toast"></div>
+</main>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/editor.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+requireAuth();
+
+async function initEditorPage() {
+  initEditor();
+  try {
+    const cats = await apiGet('/categories');
+    const sel = document.getElementById('category-select');
+    sel.innerHTML = '<option value="">无分类</option>' +
+      (cats.data || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  } catch(e) {}
+}
+
+async function savePost(e) {
+  e.preventDefault();
+  const status = e.target.querySelector('[data-status]').dataset.status;
+  const title = document.getElementById('title-input').value.trim();
+  const content = document.getElementById('content-value').value;
+  if (!title) { showToast('请输入标题', 'error'); return; }
+  if (!content || content === '<br>') { showToast('请输入内容', 'error'); return; }
+
+  try {
+    let body = { title, content, status };
+    const catId = document.getElementById('category-select').value;
+    if (catId) body.category_id = catId;
+    const tagsStr = document.getElementById('tags-input').value;
+    if (tagsStr.trim()) {
+      const tagNames = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
+      // Create tags and get IDs
+      const tagIds = [];
+      for (const name of tagNames) {
+        try {
+          const r = await apiPost('/tags', { name });
+          tagIds.push(r.data.id);
+        } catch(ex) { /* tag may exist, skip */ }
+      }
+      if (tagIds.length) {
+        const res = await apiPost('/posts', body);
+        if (res.data && res.data.id) {
+          await apiPatch(`/posts/${res.data.id}/tags`, { tag_ids: tagIds });
+        }
+      } else {
+        await apiPost('/posts', body);
+      }
+    } else {
+      await apiPost('/posts', body);
+    }
+
+    const coverFile = document.getElementById('cover-input').files[0];
+    if (coverFile) {
+      const coverUrl = await uploadCover(coverFile);
+      if (coverUrl) {
+        // Find latest post and update cover
+        const posts = await apiGet('/posts?page=1&page_size=1');
+        if (posts.data.items.length) {
+          await apiPut(`/posts/${posts.data.items[0].id}`, { cover_url: coverUrl });
+        }
+      }
+    }
+
+    showToast('文章保存成功');
+    location.href = '/';
+  } catch(e) { showToast(e.message, 'error'); }
+}
+</script>
+</body>
+</html>

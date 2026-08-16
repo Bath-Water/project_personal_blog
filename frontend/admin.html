@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理后台</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header class="header">
+<div class="container header-inner">
+  <a href="/" class="logo">📝 Blog</a>
+  <nav class="nav"><a href="/" class="nav-link">首页</a></nav>
+  <div class="nav-actions">
+    <button class="theme-toggle"></button>
+    <a href="editor.html" class="btn btn-primary btn-sm">✏️ 写文章</a>
+    <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+  </div>
+</div>
+</header>
+
+<main class="container" style="padding:32px 0">
+<h2 style="margin-bottom:24px">📊 管理后台</h2>
+
+<div id="admin-stats" class="admin-stats">
+  <div class="stat-card"><div class="stat-value" id="stat-posts">-</div><div class="stat-label">文章</div></div>
+  <div class="stat-card"><div class="stat-value" id="stat-categories">-</div><div class="stat-label">分类</div></div>
+  <div class="stat-card"><div class="stat-value" id="stat-tags">-</div><div class="stat-label">标签</div></div>
+  <div class="stat-card"><div class="stat-value" id="stat-comments">-</div><div class="stat-label">评论</div></div>
+</div>
+
+<h3 style="margin:24px 0 16px">📝 文章管理</h3>
+<div style="overflow-x:auto">
+<table class="table" id="posts-table">
+<thead><tr><th>标题</th><th>状态</th><th>日期</th><th>阅读</th><th>操作</th></tr></thead>
+<tbody id="posts-tbody"></tbody>
+</table>
+</div>
+
+<h3 style="margin:24px 0 16px">📂 分类管理</h3>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+  <input id="new-cat-name" class="form-input" style="flex:1;max-width:300px" placeholder="新分类名">
+  <button class="btn btn-primary" onclick="createCat()">添加</button>
+</div>
+<ul id="categories-list" class="sidebar-list"></ul>
+
+<h3 style="margin:24px 0 16px">⚙️ 博客设置</h3>
+<form id="settings-form" onsubmit="saveSettings(event)">
+  <div class="form-group"><label class="form-label">博客名称</label><input id="set-name" class="form-input"></div>
+  <div class="form-group"><label class="form-label">描述</label><textarea id="set-desc" class="form-input"></textarea></div>
+  <div class="form-group"><label class="form-label">主题色</label><input id="set-color" class="form-input" type="color" value="#6366f1" style="height:40px;padding:4px"></div>
+  <button type="submit" class="btn btn-primary">保存设置</button>
+</form>
+</main>
+
+<footer class="footer"><div class="container">© 2026 Blog</div></footer>
+<div id="toast"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+requireAuth();
+
+async function loadAdmin() {
+  try {
+    const [posts, cats, tags] = await Promise.all([
+      apiGet('/posts?page=1&page_size=100'),
+      apiGet('/categories'),
+      apiGet('/tags'),
+    ]);
+
+    document.getElementById('stat-posts').textContent = posts.data.total || 0;
+    document.getElementById('stat-categories').textContent = (cats.data || []).length;
+    document.getElementById('stat-tags').textContent = (tags.data || []).length;
+
+    document.getElementById('posts-tbody').innerHTML = (posts.data.items || []).map(p => `
+      <tr>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.title)}</td>
+        <td><span class="status-badge status-${p.status}">${p.status === 'published' ? '已发布' : '草稿'}</span></td>
+        <td>${formatDate(p.published_at || p.created_at)}</td>
+        <td>${p.view_count || 0}</td>
+        <td>
+          <button class="btn btn-sm btn-outline" onclick="toggleStatus('${p.id}','${p.status}')">${p.status === 'published' ? '下架' : '发布'}</button>
+          <button class="btn btn-sm btn-danger" onclick="deletePost('${p.id}')">删除</button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('categories-list').innerHTML = (cats.data || []).map(c => `
+      <li><a href="#"><span>${escapeHtml(c.name)} (${c.post_count})</span> <button class="btn btn-sm btn-danger" onclick="deleteCat('${c.id}')">删除</button></a></li>
+    `).join('');
+
+    // Settings
+    try {
+      const settings = await apiGet('/settings');
+      const s = settings.data || {};
+      document.getElementById('set-name').value = s.blog_name || '';
+      document.getElementById('set-desc').value = s.blog_description || '';
+      document.getElementById('set-color').value = s.theme_color || '#6366f1';
+    } catch(e) {}
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function toggleStatus(id, status) {
+  const newStatus = status === 'published' ? 'draft' : 'published';
+  await apiPut(`/posts/${id}`, { status: newStatus });
+  showToast('已' + (newStatus === 'published' ? '发布' : '下架'));
+  loadAdmin();
+}
+
+async function deletePost(id) {
+  if (!confirm('确定删除这篇文章？')) return;
+  await apiDelete(`/posts/${id}`);
+  showToast('已删除');
+  loadAdmin();
+}
+
+async function createCat() {
+  const name = document.getElementById('new-cat-name').value.trim();
+  if (!name) return;
+  await apiPost('/categories', { name });
+  document.getElementById('new-cat-name').value = '';
+  showToast('分类已添加');
+  loadAdmin();
+}
+
+async function deleteCat(id) {
+  await apiDelete(`/categories/${id}`);
+  showToast('已删除');
+  loadAdmin();
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const body = {
+    blog_name: document.getElementById('set-name').value,
+    blog_description: document.getElementById('set-desc').value,
+    theme_color: document.getElementById('set-color').value,
+  };
+  await apiPut('/settings', body);
+  showToast('设置已保存');
+}
+</script>
+</body>
+</html>

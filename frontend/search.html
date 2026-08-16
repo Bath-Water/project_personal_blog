@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>搜索</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header class="header">
+<div class="container header-inner">
+  <a href="/" class="logo">📝 Blog</a>
+  <nav class="nav"><a href="/" class="nav-link">首页</a></nav>
+  <div class="nav-actions"><button class="theme-toggle"></button></div>
+</div>
+</header>
+
+<main class="container" style="padding:32px 0;max-width:800px">
+<div style="margin-bottom:24px">
+  <input id="search-input" class="form-input" style="font-size:1.1rem;padding:12px 18px" placeholder="🔍 搜索文章..." autofocus>
+</div>
+<div id="search-results" class="article-grid" style="grid-template-columns:1fr"></div>
+<div id="search-loading" class="loading" style="display:none"><div class="spinner"></div></div>
+</main>
+
+<footer class="footer"><div class="container">© 2026 Blog</div></footer>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+let searchTimer = null;
+
+async function loadSearch() {
+  const q = new URLSearchParams(location.search).get('q') || '';
+  document.getElementById('search-input').value = q;
+  if (!q.trim()) { document.getElementById('search-results').innerHTML = ''; return; }
+  document.getElementById('search-loading').style.display = 'flex';
+  document.getElementById('search-results').innerHTML = '';
+  try {
+    const data = await apiGet(`/search?q=${encodeURIComponent(q)}`);
+    document.getElementById('search-loading').style.display = 'none';
+    const items = data.data.items || [];
+    document.getElementById('search-results').innerHTML = items.length
+      ? items.map(renderArticleCard).join('')
+      : `<p style="color:var(--text-muted);padding:24px;text-align:center">没有找到相关文章 (共 ${data.data.total || 0} 篇)</p>`;
+  } catch(e) { showToast(e.message, 'error'); document.getElementById('search-loading').style.display = 'none'; }
+}
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    location.search = `?q=${encodeURIComponent(e.target.value)}`;
+  }, 500);
+});
+</script>
+</body>
+</html>

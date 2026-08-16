@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>注册 - Blog</title>
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<div class="auth-page">
+<div class="auth-card">
+  <h2 class="auth-title">🚀 创建账号</h2>
+  <p class="auth-subtitle">开始你的博客之旅</p>
+  <div id="reg-error" class="form-error" style="margin-bottom:12px;display:none"></div>
+  <div id="reg-success" class="form-error" style="margin-bottom:12px;color:var(--success);display:none"></div>
+  <form onsubmit="handleRegister(event)">
+    <div class="form-group">
+      <label class="form-label">用户名</label>
+      <input id="reg-username" class="form-input" type="text" placeholder="yourname" required minlength="3" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label class="form-label">邮箱</label>
+      <input id="reg-email" class="form-input" type="email" placeholder="email@example.com" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input id="reg-password" class="form-input" type="password" placeholder="至少8位" required minlength="8" oninput="showStrength(this.value)">
+      <div id="pwd-strength" style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">确认密码</label>
+      <input id="reg-confirm" class="form-input" type="password" placeholder="再次输入密码" required>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">注册</button>
+  </form>
+  <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted)">
+    已有账号？ <a href="login.html">登录</a>
+  </p>
+</div>
+</div>
+<div id="toast"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+function showStrength(pwd) {
+  const el = document.getElementById('pwd-strength');
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (pwd.length >= 12) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  const labels = ['','弱','较弱','中等','较强','强'];
+  const colors = ['','var(--danger)','var(--warning)','var(--text-muted)','var(--accent)','var(--success)'];
+  el.textContent = '强度: ' + labels[score];
+  el.style.color = colors[score];
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('reg-error');
+  const sucEl = document.getElementById('reg-success');
+  errEl.style.display = 'none'; sucEl.style.display = 'none';
+  const username = document.getElementById('reg-username').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const confirm = document.getElementById('reg-confirm').value;
+  if (password !== confirm) { errEl.textContent = '两次密码不一致'; errEl.style.display = 'block'; return; }
+  if (password.length < 8) { errEl.textContent = '密码至少8位'; errEl.style.display = 'block'; return; }
+  try {
+    await register(username, email, password);
+    sucEl.textContent = '注册成功！正在跳转登录...';
+    sucEl.style.display = 'block';
+    setTimeout(() => location.href = 'login.html', 1500);
+  } catch(e) {
+    errEl.textContent = e.message || '注册失败';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>
